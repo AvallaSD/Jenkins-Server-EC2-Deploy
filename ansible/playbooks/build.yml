@@ -1,0 +1,38 @@
+- name: Build Jenkins Docker Image
+  hosts: all
+  become: true
+  tasks:
+    - name: Copy the Dockerfile to the build directory
+      copy:
+        src: ../files/Dockerfile
+        dest: /tmp/jenkins-docker-build/
+
+    - name: Build Jenkins image
+      docker_image:
+        name: jenkins-server
+        build:
+          path: /tmp/jenkins-docker-build/
+        source: build
+
+    - name: Create container
+      docker_container:
+        name: Jenkins
+        state: started
+        image: jenkins-server
+        detach: true
+        ports:
+          - 8080:8080
+        volumes: 
+          - jenkins_home:/var/jenkins_home
+
+    - name: Pause for 10 to create admin password
+      ansible.builtin.pause:
+        seconds: 10
+ 
+    - name: Get Jenkins admin password
+      shell: |
+        sudo docker exec $(sudo docker ps --quiet) cat /var/jenkins_home/secrets/initialAdminPassword
+      register: command_output
+      
+    - name: Print Jenkins admin password 
+      debug: var=command_output.stdout_lines
